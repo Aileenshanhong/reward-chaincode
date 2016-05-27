@@ -34,7 +34,7 @@ type SimpleChaincode struct {
 
 var entityIndexStr = "_entityindex" //name for the key/value that will store a list of all known marbles
 
-// Entity
+// Entity implementation
 type Entity struct {
 	Name   string  `json:"name"` //the fieldtags are needed to keep case from bouncing around
 	Role   string  `json:"role"`
@@ -52,7 +52,6 @@ func main() {
 	}
 }
 
-// ============================================================================================================================
 // Init - reset all the things
 // ============================================================================================================================
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
@@ -95,20 +94,25 @@ func (t *SimpleChaincode) transfer(stub *shim.ChaincodeStub, args []string) ([]b
 	from = args[0]
 	to = args[1]
 
-	fromAsbytes, err := stub.GetState(from)
-	if err != nil {
-		return nil, err
-	}
 	toAsbytes, err := stub.GetState(to)
 	if err != nil {
 		return nil, err
 	}
 
+	fromAsbytes, err := stub.GetState(from)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println(string(fromAsbytes))
+
 	fromEntity := Entity{}
 	json.Unmarshal(fromAsbytes, &fromEntity)
+	fmt.Println(fromEntity)
 
 	toEntity := Entity{}
 	json.Unmarshal(toAsbytes, &toEntity)
+	fmt.Println(toEntity)
 
 	txnAmt, err := strconv.ParseFloat(args[2], 64)
 	if err != nil {
@@ -121,9 +125,12 @@ func (t *SimpleChaincode) transfer(stub *shim.ChaincodeStub, args []string) ([]b
 
 	fromEntity.TxnBal = fromEntity.TxnBal - txnAmt
 	toEntity.TxnBal = toEntity.TxnBal + txnAmt
-
-	toEntity.PtBal = toEntity.PtBal + rdAmt
+	fmt.Println(fromEntity.PtBal)
+	fmt.Println("x")
 	fromEntity.PtBal = fromEntity.PtBal - rdAmt
+	toEntity.PtBal = toEntity.PtBal + rdAmt
+
+	fmt.Println(fromEntity.PtBal)
 
 	jsonAsBytes, _ := json.Marshal(fromEntity) //save new index
 	err = stub.PutState(fromEntity.Name, jsonAsBytes)
@@ -139,7 +146,7 @@ func (t *SimpleChaincode) transfer(stub *shim.ChaincodeStub, args []string) ([]b
 
 }
 
-// Invoke
+// Invoke implementation
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	fmt.Println("invoke is running " + function)
 
@@ -154,7 +161,6 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 
 }
 
-// ============================================================================================================================
 // Query - Our entry point for Queries
 // ============================================================================================================================
 func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
@@ -233,7 +239,12 @@ func (t *SimpleChaincode) initEntity(stub *shim.ChaincodeStub, args []string) ([
 		return nil, errors.New("4th argument must be a numeric string")
 	}
 
-	str := `{"name": "` + args[0] + `", "role": "` + args[1] + `", "txnbal": ` + args[2] + `, "ptbal": "` + args[3] + `"}`
+	entitiy := Entity{args[0], args[1], txnbal, ptbal}
+	str, err := json.Marshal(entitiy)
+	if err != nil {
+		return nil, err
+	}
+	// str := `{"name": "` + args[0] + `", "role": "` + args[1] + `", "txnbal": ` + args[2] + `, "ptbal": ` + args[3] + `}`
 	err = stub.PutState(args[0], []byte(str)) //store marble with id as key
 	if err != nil {
 		fmt.Println("Writing failed")
